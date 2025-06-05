@@ -7,6 +7,25 @@ on:
     branches: [ main ]
 
 jobs:
+  claude-code:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude Code Review
+        uses: anthropics/claude-code-action@v1
+        with:
+          api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          model: claude-3-5-sonnet-20241022
+          review-types: |
+            security
+            performance
+            best-practices
+            bugs
   test:
     runs-on: ubuntu-latest
 

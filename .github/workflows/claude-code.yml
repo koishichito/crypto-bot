@@ -1,0 +1,34 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  claude-code:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude Code
+        uses: anthropics/claude-code-action@v1
+        with:
+          api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          model: claude-3-5-sonnet-20241022
+          review-types: |
+            security
+            performance
+            best-practices
+            bugs
+          files-to-review: |
+            src/**/*.js
+            tests/**/*.js
+          custom-instructions: |
+            Focus on cryptocurrency trading bot specific concerns:
+            - Security of API keys and trading operations
+            - Error handling for network issues
+            - Rate limiting compliance
+            - Data validation for trading parameters
