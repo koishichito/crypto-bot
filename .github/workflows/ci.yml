@@ -29,6 +29,11 @@ jobs:
 
     - name: Run tests
       run: npm test
+      env:
+        EXCHANGE: binance
+        API_KEY: test_key
+        API_SECRET: test_secret
+        TRADING_PAIR: BTC/USDT
       
     - name: Check for linting script
       id: check-lint
