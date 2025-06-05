@@ -9,3 +9,9 @@ build/
 coverage/
 .vscode/
 .idea/
+__pycache__/
+*.pyc
+*.pyo
+venv/
+env/
+.Python

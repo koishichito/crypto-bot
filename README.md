@@ -65,6 +65,16 @@ python bot_websocket.py
 python show_performance.py
 ```
 
+### ブレイクアウト戦略のバックテスト
+```bash
+python backtest_breakout.py
+```
+
+### ユニットテスト実行
+```bash
+python -m pytest tests/test_breakout_strategy.py
+```
+
 ## ⚙️ 設定
 
 `.env`ファイルで設定可能な項目:
@@ -76,6 +86,13 @@ python show_performance.py
 | `TRADING_PAIR` | 取引ペア | BTC/USDT |
 | `TRADE_AMOUNT` | 1回の取引金額 (USDT) | 10 |
 | `BOT_MODE` | `paper_trading` or `live_trading` | paper_trading |
+| `STRATEGY` | 戦略選択 (`breakout` or `ma_cross`) | breakout |
+| **ブレイクアウト戦略** | | |
+| `ENTRY_LOOKBACK_PERIOD` | エントリー判定期間 | 20 |
+| `EXIT_LOOKBACK_PERIOD` | エグジット判定期間 | 10 |
+| `RISK_PER_TRADE` | 1トレードあたりリスク (%) | 1.0 |
+| `USE_TURTLE_FILTER` | タートルフィルタ使用 | true |
+| **MA戦略** | | |
 | `FAST_MA_PERIOD` | 短期移動平均期間 | 10 |
 | `SLOW_MA_PERIOD` | 長期移動平均期間 | 30 |
 | `TAKE_PROFIT` | 利確ライン (%) | 2.0 |
@@ -84,10 +101,25 @@ python show_performance.py
 
 ## 📊 取引戦略
 
-### 移動平均クロス戦略
+### 1. ブレイクアウト戦略（推奨）
+暗号資産市場のトレンド性質に最適化された戦略です。
+
+- **エントリー条件**:
+  - 上昇ブレイク: 直近N期間（デフォルト20）の最高値を上回る → ロング
+  - 下降ブレイク: 直近N期間の最安値を下回る → ショート（現物では見送り）
+- **エグジット条件**:
+  - 逆方向ブレイク: 直近M期間（デフォルト10）の最安値/最高値でトレイリングストップ
+- **リスク管理**:
+  - ポジションサイズ: 資産の1%リスク/トレード
+  - タートルフィルタ: 直前の勝ちトレード後は次のシグナルを見送り
+- **期待値**: バックテストで高い収益性を確認
+
+### 2. 移動平均クロス戦略
+従来の移動平均線を使用した戦略です。
+
 - **エントリー条件**:
   - ゴールデンクロス: 短期MA > 長期MA → 買い
-  - デッドクロス: 短期MA < 長期MA → 売り（ショート）
+  - デッドクロス: 短期MA < 長期MA → 売り
 - **エグジット条件**:
   - 利確: +2%（設定可能）
   - 損切り: -1%（設定可能）

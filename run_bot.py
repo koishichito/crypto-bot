@@ -14,6 +14,7 @@ sys.path.append(str(Path(__file__).parent))
 
 from config import BotConfig
 from bot.strategies.ma_cross import MACrossStrategy
+from bot.strategies.breakout import BreakoutStrategy
 from bot.strategies.base import BaseStrategy
 
 class TradingBot:
@@ -35,6 +36,14 @@ class TradingBot:
                 trade_amount=self.config.trade_amount,
                 fast_period=self.config.fast_ma_period,
                 slow_period=self.config.slow_ma_period
+            )
+        elif self.config.strategy == 'breakout':
+            return BreakoutStrategy(
+                symbol=self.config.symbol,
+                trade_amount=self.config.trade_amount,
+                entry_lookback=self.config.entry_lookback_period,
+                exit_lookback=self.config.exit_lookback_period,
+                risk_per_trade=self.config.risk_per_trade
             )
         else:
             raise ValueError(f"Unknown strategy: {self.config.strategy}")
@@ -113,10 +122,17 @@ class TradingBot:
                     pnl = self.strategy.get_position_pnl(current_price)
                     logger.info(f"Position PnL: {pnl:.2f}%")
                     
+                    # ブレイクアウト戦略の場合、エグジットレベルを更新
+                    if self.config.strategy == 'breakout':
+                        await self.strategy.update_exit_levels(client)
+                    
                     if await self.strategy.should_close_position(current_price):
                         quantity = self.strategy.position['quantity']
                         success = await self.execute_trade(client, 'sell', quantity)
                         if success:
+                            # ブレイクアウト戦略の場合、トレード結果を記録
+                            if self.config.strategy == 'breakout' and pnl > 0:
+                                self.strategy.update_last_trade_result(profitable=True)
                             self.strategy.clear_position()
                 else:
                     # ポジションなし - エントリー判定
@@ -124,8 +140,24 @@ class TradingBot:
                     logger.info(f"Strategy signal: {signal}")
                     
                     if signal == 'buy':
-                        quantity = self.config.trade_amount / current_price
-                        success = await self.execute_trade(client, 'buy', self.config.trade_amount)
+                        # ブレイクアウト戦略の場合、リスクベースのポジションサイジング
+                        if self.config.strategy == 'breakout':
+                            # 残高を取得
+                            account_info = await self.get_account_info(client)
+                            balance = float(account_info.get('totalWalletBalance', self.config.trade_amount)) if account_info else self.config.trade_amount
+                            
+                            # ストップ価格（エグジット用最安値）を取得
+                            stop_price = self.strategy.market_data.get('exit_low', current_price * 0.98)
+                            
+                            # ポジションサイズを計算
+                            quantity = self.strategy.calculate_position_size(current_price, stop_price, balance)
+                            trade_amount = quantity * current_price
+                        else:
+                            # デフォルトのポジションサイジング
+                            quantity = self.config.trade_amount / current_price
+                            trade_amount = self.config.trade_amount
+                        
+                        success = await self.execute_trade(client, 'buy', trade_amount)
                         if success:
                             self.strategy.update_position('long', current_price, quantity)
                 
