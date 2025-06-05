@@ -1,0 +1,74 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run tests
+      run: npm test
+      
+    - name: Check for linting script
+      id: check-lint
+      run: |
+        if npm run | grep -q "lint"; then
+          echo "lint-exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "lint-exists=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Run linting
+      if: steps.check-lint.outputs.lint-exists == 'true'
+      run: npm run lint
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Verify application starts
+      run: |
+        timeout 10s npm start || exit_code=$?
+        if [ $exit_code -eq 124 ]; then
+          echo "Application started successfully (timeout expected)"
+          exit 0
+        else
+          echo "Application failed to start"
+          exit 1
+        fi
+      env:
+        NODE_ENV: production
